@@ -1,0 +1,19 @@
+{
+  "name": "three-3d-tetris",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/three": "^0.155.1",
+    "three": "^0.155.0",
+    "vite": "^4.4.9"
+  }
+}
