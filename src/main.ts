@@ -12,6 +12,7 @@ class Draw {
         this.initRenderer()
         this.initScene()
         this.initCamera()
+        this.initLight()
         this.initModel()
         this.initControl()
         this.animate()
@@ -28,13 +29,38 @@ class Draw {
     }
 
     initCamera() {
-        this.camera.position.set(25, 50, 100)
+        this.camera.position.set(200, 400, 200)
         this.camera.lookAt(this.scene.position)
     }
 
+    initLight() {
+        this.scene.add(new THREE.AmbientLight(0x404040))
+        const light = new THREE.DirectionalLight(0xffffff)
+        light.position.set(100, 400, 100)
+
+        this.scene.add(light)
+    }
+
     initModel() {
-        this.scene.add(new THREE.GridHelper(100))
-        this.scene.add(new THREE.AxesHelper(100))
+        this.scene.add(new THREE.GridHelper(200))
+        this.scene.add(new THREE.AxesHelper(200))
+        this.createCube()
+    }
+
+    createCube() {
+        
+        const cubeGeomatry = new THREE.BoxGeometry(10, 10, 10)
+        const cubeMaterial = new THREE.MeshPhongMaterial({
+            color: 0xaaccee,
+        })
+        const cube = new THREE.Mesh(cubeGeomatry, cubeMaterial)
+        cube.position.set(
+            THREE.MathUtils.randFloatSpread(100),
+            100,
+            THREE.MathUtils.randFloatSpread(100),
+        )
+        cube.name = 'cube'
+        this.scene.add(cube)
     }
 
     initControl() {
@@ -43,6 +69,15 @@ class Draw {
 
     render() {
         this.renderer.render(this.scene, this.camera)
+        this.scene.traverse((e) => {
+            if(e.name === 'cube') {
+                e.position.y -= 0.3
+                if(e.position.y < 0) {
+                    this.scene.remove(e)
+                    this.createCube()
+                }
+            }
+        })
     }
 
     animate() {
