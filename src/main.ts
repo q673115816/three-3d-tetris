@@ -1,5 +1,8 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import Stats from 'three/examples/jsm/libs/stats.module'
+import CustomMesh from './customMesh'
+import { clamp } from 'lodash-es'
 class Draw {
     renderer: THREE.WebGLRenderer = new THREE.WebGLRenderer({
         antialias: true,
@@ -8,14 +11,42 @@ class Draw {
     scene: THREE.Scene = new THREE.Scene
     camera: THREE.PerspectiveCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000)
     control: OrbitControls = new OrbitControls(this.camera, this.renderer.domElement)
+    stats: Stats = new Stats()
+    mixer: THREE.AnimationMixer
+    clock = new THREE.Clock()
+    boxSize = 20
+    tick = 0
+    keyControl = {
+        r: false,
+        ArrowUp: false,
+        ArrowDown: false,
+        ArrowLeft: false,
+        ArrowRight: false,
+    }
+    keyControlMap = {
+        ArrowUp: 'x',
+        ArrowDown: 'x',
+        ArrowLeft: 'z',
+        ArrowRight: 'z',
+    }
+    keyControlMapValue = {
+        ArrowUp: -1,
+        ArrowDown: 1,
+        ArrowLeft: 1,
+        ArrowRight: -1,
+    }
     constructor() {
         this.initRenderer()
         this.initScene()
         this.initCamera()
         this.initLight()
         this.initModel()
+        this.initStats()
         this.initControl()
+        this.initKeydown()
+        this.initWindow()
         this.animate()
+
     }
 
     initRenderer() {
@@ -42,48 +73,122 @@ class Draw {
     }
 
     initModel() {
-        this.scene.add(new THREE.GridHelper(200))
-        this.scene.add(new THREE.AxesHelper(200))
+        this.scene.add(new THREE.GridHelper(this.boxSize * 10))
+        this.scene.add(new THREE.AxesHelper(this.boxSize * 10))
         this.createCube()
     }
 
     createCube() {
-        
-        const cubeGeomatry = new THREE.BoxGeometry(10, 10, 10)
-        const cubeMaterial = new THREE.MeshPhongMaterial({
-            color: 0xaaccee,
-        })
-        const cube = new THREE.Mesh(cubeGeomatry, cubeMaterial)
+
+        const cubeGeomatry = new THREE.BoxGeometry(this.boxSize, this.boxSize, this.boxSize)
+
+        const cubeMaterials: Array<THREE.Material> = []
+        for (let i = 0; i < 6; i++) {
+            cubeMaterials.push(
+                new THREE.MeshPhongMaterial({
+                    color: 0xffffff * Math.random(),
+                })
+            )
+        }
+        const cube = new CustomMesh(cubeGeomatry, cubeMaterials)
+
+
         cube.position.set(
-            THREE.MathUtils.randFloatSpread(100),
-            100,
-            THREE.MathUtils.randFloatSpread(100),
+            (THREE.MathUtils.randFloatSpread(10) | 0) * this.boxSize,
+            10 * this.boxSize,
+            (THREE.MathUtils.randFloatSpread(10) | 0) * this.boxSize,
         )
         cube.name = 'cube'
         this.scene.add(cube)
     }
 
+    initStats() {
+        document.body.append(this.stats.dom)
+    }
+
+
     initControl() {
+        this.control.maxDistance = 600
+        this.control.minDistance = 200
 
     }
 
-    render() {
+    initKeydown() {
+        const createSetKey = (bool: boolean) => {
+            return ({ key }) => {
+                console.log(key)
+                if (key in this.keyControl) {
+                    this.keyControl[key] = bool
+                }
+            }
+        }
+        window.addEventListener('keydown', createSetKey(true))
+        window.addEventListener('keyup', createSetKey(false))
+    }
+
+    initWindow() {
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight
+            this.camera.updateProjectionMatrix();
+
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        })
+    }
+
+    roll(e) {
+        for (const key in this.keyControlMap) {
+            if (!this.keyControl[key]) continue
+
+            e.rotation[this.keyControlMap[key]] += this.keyControlMapValue[key] * Math.PI / 2
+        }
+    }
+
+    move(e) {
+        for (const key in this.keyControlMap) {
+            if (!this.keyControl[key]) continue
+
+            e.position[this.keyControlMap[key]] += this.keyControlMapValue[key] * this.boxSize
+            e.position[this.keyControlMap[key]] = clamp(
+                e.position[this.keyControlMap[key]],
+                -5 * this.boxSize,
+                5 * this.boxSize,
+            )
+        }
+    }
+
+    render(t = 0) {
+        let flag = false
+        if (t - this.tick >= 1000) flag = true
         this.renderer.render(this.scene, this.camera)
         this.scene.traverse((e) => {
-            if(e.name === 'cube') {
-                e.position.y -= 0.3
-                if(e.position.y < 0) {
-                    this.scene.remove(e)
+            if (e.name === 'cube' && e.status !== 'finish') {
+                if (this.keyControl.r) {
+                    this.roll(e)
+                } else {
+                    this.move(e)
+                }
+
+                if (flag) {
+                    e.position.y -= this.boxSize
+                    this.tick = t
+
+
+                }
+                if (e.position.y < 0) {
+                    e.status = 'finish'
+                    e.position.y = 0
                     this.createCube()
                 }
             }
         })
     }
 
-    animate() {
-        this.render()
-
-        requestAnimationFrame(() => this.animate())
+    animate(t = 0) {
+        this.render(t)
+        this.stats.update()
+        this.control.update()
+        this.mixer?.update(this.clock.getDelta())
+        requestAnimationFrame((t) => this.animate(t))
     }
 }
 
