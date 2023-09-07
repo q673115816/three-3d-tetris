@@ -1,8 +1,9 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils'
 import Stats from 'three/examples/jsm/libs/stats.module'
 import CustomMesh from './customMesh'
-import { clamp } from 'lodash-es'
+import { clamp, debounce } from 'lodash-es'
 class Draw {
     renderer: THREE.WebGLRenderer = new THREE.WebGLRenderer({
         antialias: true,
@@ -75,7 +76,11 @@ class Draw {
     initModel() {
         this.scene.add(new THREE.GridHelper(this.boxSize * 10))
         this.scene.add(new THREE.AxesHelper(this.boxSize * 10))
-        this.createCube()
+        this.addMesh()
+    }
+
+    addMesh() {
+        this.createLBlock()
     }
 
     createCube() {
@@ -92,14 +97,42 @@ class Draw {
         }
         const cube = new CustomMesh(cubeGeomatry, cubeMaterials)
 
+        this.meshInitPosition(cube)
+        this.scene.add(cube)
+    }
 
-        cube.position.set(
+    meshInitPosition(mesh) {
+        mesh.position.set(
             (THREE.MathUtils.randFloatSpread(10) | 0) * this.boxSize,
             10 * this.boxSize,
             (THREE.MathUtils.randFloatSpread(10) | 0) * this.boxSize,
         )
-        cube.name = 'cube'
-        this.scene.add(cube)
+        mesh.name = 'cube'
+    }
+
+    createLBlock() {
+        const vector3List = [
+            [0, 0, 0],
+            [this.boxSize, 0, 0],
+            [-this.boxSize, 0, 0],
+            [-this.boxSize, this.boxSize, 0],
+        ]
+        const geometries = []
+        for(const vector3 of vector3List) {
+        const cellGeometry = new THREE.BoxGeometry(
+            this.boxSize,
+            this.boxSize,
+            this.boxSize,
+            )
+            cellGeometry.translate(...vector3)
+            geometries.push(cellGeometry)
+        }
+        const material = new THREE.MeshPhongMaterial({
+            color: 0xffffff * Math.random(),
+        })
+        const lblock = new THREE.Mesh(mergeGeometries(geometries), material)
+        this.meshInitPosition(lblock)
+        this.scene.add(lblock)
     }
 
     initStats() {
@@ -156,9 +189,11 @@ class Draw {
         }
     }
 
+    debounceMove(e) {
+        return debounce(() => this.move(e), 10)
+    }
+
     render(t = 0) {
-        let flag = false
-        if (t - this.tick >= 1000) flag = true
         this.renderer.render(this.scene, this.camera)
         this.scene.traverse((e) => {
             if (e.name === 'cube' && e.status !== 'finish') {
@@ -167,8 +202,7 @@ class Draw {
                 } else {
                     this.move(e)
                 }
-
-                if (flag) {
+                if (t - this.tick >= 1000) {
                     e.position.y -= this.boxSize
                     this.tick = t
 
@@ -177,7 +211,7 @@ class Draw {
                 if (e.position.y < 0) {
                     e.status = 'finish'
                     e.position.y = 0
-                    this.createCube()
+                    this.addMesh()
                 }
             }
         })

@@ -1,0 +1,8 @@
+{
+  "name": "俄罗斯方块3D",
+  "description": "基于网页实现的俄罗斯方块3D版",
+  "start_url": "/",
+  "lang": "zh-CN",
+  "theme_color": "#ffffff",
+  "display": "fullscreen"
+}
